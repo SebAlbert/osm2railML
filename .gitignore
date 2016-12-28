@@ -1,0 +1,11 @@
+*.*
+
+!.gitignore
+!pom.xml
+!*.java
+!*.xjb
+!*.xsd
+!*.properties
+
+target/**
+

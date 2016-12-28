@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<jaxb:bindings xmlns:xs = "http://www.w3.org/2001/XMLSchema"
+               xmlns:jaxb = "http://java.sun.com/xml/ns/jaxb"
+               version = "2.1"
+>
+    <jaxb:globalBindings generateIsSetMethod="false" fixedAttributeAsConstantProperty="true" enableValidation = "true" enableFailFastCheck="true"/>
+    <jaxb:bindings schemaLocation = "http://www.railml.org/files/download/schemas/2016/railML-2.3/schema/infrastructure.xsd">
+        <jaxb:bindings node = "//xs:schema/xs:complexType[@name='eTrack']/xs:complexContent/xs:extension/xs:sequence/xs:any[@namespace='##other']">
+            <jaxb:property name = "any2" />
+        </jaxb:bindings>
+    </jaxb:bindings>
+    <jaxb:bindings schemaLocation = "http://www.railml.org/files/download/schemas/2016/railML-2.3/schema/genericRailML.xsd">
+        <jaxb:bindings node = "//xs:schema/xs:complexType[@name='tElementWithIDAndName']/xs:sequence/xs:any[@namespace='##other']">
+            <jaxb:property name = "any3" />
+        </jaxb:bindings>
+    </jaxb:bindings>
+</jaxb:bindings>
