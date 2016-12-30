@@ -1,4 +1,4 @@
-package com.github.aptd.osm2railml;
+package com.sebalbert.osm2railml;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
@@ -7,7 +7,7 @@ import junit.framework.TestSuite;
 /**
  * Unit test for simple App.
  */
-public class CMainTest
+public class MainTest
     extends TestCase
 {
     /**
@@ -15,7 +15,7 @@ public class CMainTest
      *
      * @param testName name of the test case
      */
-    public CMainTest( String testName )
+    public MainTest(String testName )
     {
         super( testName );
     }
@@ -25,7 +25,7 @@ public class CMainTest
      */
     public static Test suite()
     {
-        return new TestSuite( CMainTest.class );
+        return new TestSuite( MainTest.class );
     }
 
     /**

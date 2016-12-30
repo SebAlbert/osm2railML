@@ -1,4 +1,4 @@
-package com.github.aptd.osm2railml.osm;
+package com.sebalbert.osm2railml.osm;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -9,11 +9,11 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 
 @XmlRootElement(name = "node")
-public class CNode {
+public class Node {
 
     @XmlAttribute
     public final String id = null, lat = null, lon = null;
 
-    private CNode() { }
+    private Node() { }
 
 }

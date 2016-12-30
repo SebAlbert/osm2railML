@@ -1,4 +1,4 @@
-package com.github.aptd.osm2railml.osm;
+package com.sebalbert.osm2railml.osm;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -13,23 +13,23 @@ import java.util.List;
  * Main object holding data from OpenStreetMap (Nodes, Ways, Relations)
  */
 @XmlRootElement(name = "osm")
-public class COsmExtract {
+public class OsmExtract {
 
     @XmlElement(name = "node")
-    public final List<CNode> nodes = new ArrayList<CNode>();
+    public final List<Node> nodes = new ArrayList<Node>();
 
-    private COsmExtract() { }
+    private OsmExtract() { }
 
     /**
      * Construct from XML file via JAXB
      * @param file - A File object of an XML file containing OSM data to be read
-     * @return - a COsmExtract object representing the data from the XML file
+     * @return - an OsmExtract object representing the data from the XML file
      * @throws JAXBException
      */
-    public static COsmExtract fromFile(File file) throws JAXBException {
-        JAXBContext context = JAXBContext.newInstance(COsmExtract.class);
+    public static OsmExtract fromFile(File file) throws JAXBException {
+        JAXBContext context = JAXBContext.newInstance(OsmExtract.class);
         Unmarshaller unmarshaller = context.createUnmarshaller();
-        return (COsmExtract) unmarshaller.unmarshal(file);
+        return (OsmExtract) unmarshaller.unmarshal(file);
     }
 
 }

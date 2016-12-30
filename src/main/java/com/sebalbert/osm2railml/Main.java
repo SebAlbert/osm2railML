@@ -1,7 +1,7 @@
-package com.github.aptd.osm2railml;
+package com.sebalbert.osm2railml;
 
-import com.github.aptd.osm2railml.osm.CNode;
-import com.github.aptd.osm2railml.osm.COsmExtract;
+import com.sebalbert.osm2railml.osm.Node;
+import com.sebalbert.osm2railml.osm.OsmExtract;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
@@ -10,7 +10,7 @@ import java.io.File;
  * Main executable.
  *
  */
-public class CMain
+public class Main
 {
 
     /**
@@ -19,8 +19,8 @@ public class CMain
      * @throws JAXBException
      */
     public static void main( String[] args ) throws JAXBException {
-        COsmExtract osm = COsmExtract.fromFile(new File(args[0]));
-        for (CNode n : osm.nodes)
+        OsmExtract osm = OsmExtract.fromFile(new File(args[0]));
+        for (Node n : osm.nodes)
             System.out.println(n.id + ": " + n.lat + "/" + n.lon);
 
     }

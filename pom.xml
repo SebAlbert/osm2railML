@@ -17,13 +17,13 @@
 
   <issueManagement>
     <system>GitHub Issues</system>
-    <url>https://github.com/APTD/osm2railML/issues</url>
+    <url>https://github.com/SebAlbert/osm2railML/issues</url>
   </issueManagement>
 
   <scm>
-    <url>https://github.com/APTD/osm2railML</url>
-    <connection>scm:git:git://github.com:APTD/osm2railML.git</connection>
-    <developerConnection>scm:git:git@github.com:APTD/osm2railML.git</developerConnection>
+    <url>https://github.com/SebAlbert/osm2railML</url>
+    <connection>scm:git:git://github.com:SebAlbert/osm2railML.git</connection>
+    <developerConnection>scm:git:git@github.com:SebAlbert/osm2railML.git</developerConnection>
   </scm>
 
   <prerequisites>
@@ -151,7 +151,7 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
-                    <Main-Class>com.github.aptd.osm2railml.CMain</Main-Class>
+                    <Main-Class>com.sebalbert.osm2railml.Main</Main-Class>
                   </manifestEntries>
                 </transformer>
               </transformers>
