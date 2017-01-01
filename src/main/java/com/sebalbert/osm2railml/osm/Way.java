@@ -1,6 +1,6 @@
 /**
  osm2railML - creating railML infrastructure from OpenStreetMap data
- Copyright (C) 2016  Sebastian Albert
+ Copyright (C) 2016-2017  Sebastian Albert
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -21,27 +21,26 @@ package com.sebalbert.osm2railml.osm;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlID;
+import javax.xml.bind.annotation.XmlIDREF;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * POJO for a Node in the sense of OSM data
+ * POJO for a Way in the sense of OpenStreetMap data
  */
-
-public class Node {
-
-    @XmlAttribute @XmlID
-    public final String id = null;
-    /* Note that OSM XML may contain duplicate IDs in the sense of XML
-       because nodes, ways and relations have their own numberings which overlap,
-       and the "id" attributes are not prefixed to make them unique.
-       Thus, using @XmlID is not generally possible for more than one class
-       unless XmlJavaTypeAdapters are used or the XML is otherwise preprocessed
-     */
+public class Way {
 
     @XmlAttribute
-    public final String lat = null, lon = null;
+    public String id = null;
 
-    private Node() { }
+    @XmlElement(name = "nd")
+    public List<NodeRef> nd = new ArrayList<NodeRef>();
+
+    public static class NodeRef {
+        @XmlAttribute(name = "ref") @XmlIDREF
+        public Node node;
+    }
 
 }
+

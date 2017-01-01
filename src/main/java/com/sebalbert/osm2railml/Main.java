@@ -20,6 +20,7 @@ package com.sebalbert.osm2railml;
 
 import com.sebalbert.osm2railml.osm.Node;
 import com.sebalbert.osm2railml.osm.OsmExtract;
+import com.sebalbert.osm2railml.osm.Way;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
@@ -40,6 +41,7 @@ public class Main
         OsmExtract osm = OsmExtract.fromFile(new File(args[0]));
         for (Node n : osm.nodes)
             System.out.println(n.id + ": " + n.lat + "/" + n.lon);
-
+        for (Way w : osm.ways)
+            System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id);
     }
 }

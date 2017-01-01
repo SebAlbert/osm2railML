@@ -37,6 +37,9 @@ public class OsmExtract {
     @XmlElement(name = "node")
     public final List<Node> nodes = new ArrayList<Node>();
 
+    @XmlElement(name = "way")
+    public final List<Way> ways = new ArrayList<Way>();
+
     private OsmExtract() { }
 
     /**
