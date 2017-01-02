@@ -42,6 +42,6 @@ public class Main
         for (Node n : osm.nodes)
             System.out.println(n.id + ": " + n.lat + "/" + n.lon);
         for (Way w : osm.ways)
-            System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id);
+            System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() + " - railway:" + w.getTag("railway"));
     }
 }
