@@ -21,6 +21,9 @@ package com.sebalbert.osm2railml.osm;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlID;
+import javax.xml.bind.annotation.XmlTransient;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * POJO for a Node in the sense of OSM data
@@ -39,6 +42,9 @@ public class Node extends Taggable {
 
     @XmlAttribute
     public final String lat = null, lon = null;
+
+    @XmlTransient
+    public final List<Way.NodeRef> wayRefs = new ArrayList<>();
 
     private Node() { }
 

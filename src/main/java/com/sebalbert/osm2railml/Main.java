@@ -40,7 +40,7 @@ public class Main
     public static void main( String[] args ) throws JAXBException {
         OsmExtract osm = OsmExtract.fromFile(new File(args[0]));
         for (Node n : osm.nodes)
-            System.out.println(n.id + ": " + n.lat + "/" + n.lon);
+            System.out.println(n.id + ": " + n.lat + "/" + n.lon + " [" + n.wayRefs.size() + " - " + n.wayRefs.get(0).way.id);
         for (Way w : osm.ways)
             System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() + " - railway:" + w.getTag("railway"));
     }

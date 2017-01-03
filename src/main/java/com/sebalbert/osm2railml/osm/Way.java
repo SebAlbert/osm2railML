@@ -19,10 +19,12 @@
 
 package com.sebalbert.osm2railml.osm;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlIDREF;
-import java.util.ArrayList;
+import javax.xml.bind.annotation.XmlTransient;
+import java.util.LinkedList;
 import java.util.List;
 
 
@@ -35,11 +37,33 @@ public class Way extends Taggable {
     public String id = null;
 
     @XmlElement(name = "nd")
-    public List<NodeRef> nd = new ArrayList<NodeRef>();
+    public List<NodeRef> nd = new LinkedList<NodeRef>();
+
+    public void afterUnmarshal(Unmarshaller u, Object parent) {
+        NodeRef prev = null;
+        for (NodeRef r : nd) {
+            if (prev != null) prev.next = r;
+            r.prev = prev;
+            prev = r;
+        }
+    }
 
     public static class NodeRef {
+
         @XmlAttribute(name = "ref") @XmlIDREF
         public Node node;
+
+        @XmlTransient
+        public Way way;
+
+        @XmlTransient
+        public NodeRef prev, next;
+
+        public void afterUnmarshal(Unmarshaller u, Object parent) {
+            this.way = (Way) parent;
+            this.node.wayRefs.add(this);
+        }
+
     }
 
 }
