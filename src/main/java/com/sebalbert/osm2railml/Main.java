@@ -22,12 +22,21 @@ import com.sebalbert.osm2railml.osm.Node;
 import com.sebalbert.osm2railml.osm.OsmExtract;
 import com.sebalbert.osm2railml.osm.Way;
 import org.railml.schemas._2016.*;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Main executable.
@@ -41,7 +50,7 @@ public class Main
      * @param args - first argument is expected to be a local (relative) filename
      * @throws JAXBException
      */
-    public static void main( String[] args ) throws JAXBException {
+    public static void main( String[] args ) throws JAXBException, MalformedURLException, SAXException {
         OsmExtract osm = OsmExtract.fromFile(new File(args[0]));
         for (Node n : osm.nodes)
             System.out.println(n.id + ": " + n.lat + "/" + n.lon + " [" + n.wayRefs.size() + " - " + n.wayRefs.get(0).way.id);
@@ -49,9 +58,19 @@ public class Main
             System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() + " - railway:" + w.getTag("railway"));
 
         Infrastructure is = new Infrastructure();
+        is.setId("is");
         ETracks tracks = new ETracks();
         is.setTracks(tracks);
-        osm.ways.parallelStream().map(wayToTrack);
+        tracks.getTrack().addAll(osm.ways.parallelStream().map(wayToTrack).collect(Collectors.toList()));
+        referencesToBeSet.entrySet().parallelStream().forEach(e -> e.getValue()
+                .forEach(c -> c.accept(objectById.get(e.getKey()))));
+        JAXBContext jc = JAXBContext.newInstance(Infrastructure.class);
+        Marshaller marshaller = jc.createMarshaller();
+        // SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        // Schema schema = schemaFactory.newSchema(new URL("http://www.railml.org/files/download/schemas/2016/railML-2.3/schema/infrastructure.xsd"));
+        // marshaller.setSchema(schema);
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        marshaller.marshal(is, System.out);
     }
 
     private static Function<Way, ETrack> wayToTrack = way -> {
@@ -84,14 +103,20 @@ public class Main
                 String thisConnId = "conn_" + nd.way.id + "_" + nd.node.id;
                 String thatConnId = "conn_" + otherWayRef.way.id + "_" + nd.node.id;
                 conn.setId(thisConnId);
-                setReferenceLater(thatConnId, ref -> conn.setRef(ref));
                 objectById.put(thisConnId, conn);
+                setReferenceLater(thatConnId, ref -> conn.setRef(ref));
+                trackNode.setConnection(conn);
         }
     }
 
     private static Map<String, Object> objectById = Collections.synchronizedMap(new HashMap<>());
     private static Map<String, List<Consumer<Object>>> referencesToBeSet = Collections.synchronizedMap(new HashMap<>());
     private static void setReferenceLater(String id, Consumer<Object> c) {
+        Object o = objectById.get(id);
+        if (o != null) {
+            c.accept(o);
+            return;
+        }
         List<Consumer<Object>> list = referencesToBeSet.get(id);
         if (list == null) {
             list = Collections.synchronizedList(new LinkedList<>());
