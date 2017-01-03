@@ -21,9 +21,8 @@ package com.sebalbert.osm2railml.osm;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlTransient;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Base class for Node, Way and Relation, because all of them can have tags
@@ -39,18 +38,18 @@ public abstract class Taggable {
 
     /**
      * Get the value of a certain key from OSM tags
-     * @param key - the key to lookup
+     * @param key - the key to look up
      * @return - the value of the corresponding tag, or null if there is none
      */
     public String getTag(String key) {
         return tags.stream().filter(t -> t.key.equals(key)).map(t -> t.value).findAny().orElse(null);
     }
 
-
     public static class Tag {
 
         @XmlAttribute(name = "k")
         public String key;
+
         @XmlAttribute(name = "v")
         public String value;
 
