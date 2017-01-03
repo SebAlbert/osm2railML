@@ -25,7 +25,6 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlIDREF;
 import javax.xml.bind.annotation.XmlTransient;
 import java.util.LinkedList;
-import java.util.List;
 
 
 /**
@@ -37,7 +36,7 @@ public class Way extends Taggable {
     public String id = null;
 
     @XmlElement(name = "nd")
-    public List<NodeRef> nd = new LinkedList<NodeRef>();
+    public LinkedList<NodeRef> nd = new LinkedList<NodeRef>();
 
     public void afterUnmarshal(Unmarshaller u, Object parent) {
         NodeRef prev = null;

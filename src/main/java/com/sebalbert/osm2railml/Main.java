@@ -21,9 +21,13 @@ package com.sebalbert.osm2railml;
 import com.sebalbert.osm2railml.osm.Node;
 import com.sebalbert.osm2railml.osm.OsmExtract;
 import com.sebalbert.osm2railml.osm.Way;
+import org.railml.schemas._2016.*;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Main executable.
@@ -43,5 +47,57 @@ public class Main
             System.out.println(n.id + ": " + n.lat + "/" + n.lon + " [" + n.wayRefs.size() + " - " + n.wayRefs.get(0).way.id);
         for (Way w : osm.ways)
             System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() + " - railway:" + w.getTag("railway"));
+
+        Infrastructure is = new Infrastructure();
+        ETracks tracks = new ETracks();
+        is.setTracks(tracks);
+        osm.ways.parallelStream().map(wayToTrack);
     }
+
+    private static Function<Way, ETrack> wayToTrack = way -> {
+        ETrack t = new ETrack();
+        t.setId("w_" + way.id);
+        ETrackTopology topo = new ETrackTopology();
+        t.setTrackTopology(topo);
+        ETrackBegin tB = new ETrackBegin();
+        topo.setTrackBegin(tB);
+        tB.setId("tB_" + way.id);
+        setTrackBeginOrEnd(tB, way.nd.getFirst());
+        ETrackEnd tE = new ETrackEnd();
+        topo.setTrackEnd(tE);
+        tE.setId("tE_" + way.id);
+        setTrackBeginOrEnd(tE, way.nd.getLast());
+        return t;
+    };
+
+    private static void setTrackBeginOrEnd(ETrackNode trackNode, Way.NodeRef nd) {
+        switch (nd.node.wayRefs.size()) {
+            case 1:
+                TOpenEnd openEnd = new TOpenEnd();
+                openEnd.setId("openEnd_" + nd.node.wayRefs.get(0).node.id);
+                trackNode.setOpenEnd(openEnd);
+                break;
+            case 2:
+                Way.NodeRef otherWayRef = nd.node.wayRefs.stream().filter(r -> r.way != nd.way).findAny()
+                        .orElseThrow(() -> new RuntimeException("Way " + nd.way.id + " contains a node twice"));
+                TConnectionData conn = new TConnectionData();
+                String thisConnId = "conn_" + nd.way.id + "_" + nd.node.id;
+                String thatConnId = "conn_" + otherWayRef.way.id + "_" + nd.node.id;
+                conn.setId(thisConnId);
+                setReferenceLater(thatConnId, ref -> conn.setRef(ref));
+                objectById.put(thisConnId, conn);
+        }
+    }
+
+    private static Map<String, Object> objectById = Collections.synchronizedMap(new HashMap<>());
+    private static Map<String, List<Consumer<Object>>> referencesToBeSet = Collections.synchronizedMap(new HashMap<>());
+    private static void setReferenceLater(String id, Consumer<Object> c) {
+        List<Consumer<Object>> list = referencesToBeSet.get(id);
+        if (list == null) {
+            list = Collections.synchronizedList(new LinkedList<>());
+            referencesToBeSet.put(id, list);
+        }
+        list.add(c);
+    }
+
 }
