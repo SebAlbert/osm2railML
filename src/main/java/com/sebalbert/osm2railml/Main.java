@@ -53,26 +53,32 @@ public class Main
     public static void main( String[] args ) throws JAXBException, MalformedURLException, SAXException {
         OsmExtract osm = OsmExtract.fromFile(new File(args[0]));
         for (Node n : osm.nodes)
-            System.out.println(n.id + ": " + n.lat + "/" + n.lon + " [" + n.wayRefs.size() + " - " + n.wayRefs.get(0).way.id);
+            System.out.println(n.id + ": " + n.lat + "/" + n.lon + " [" + n.wayRefs.size() + " - " +
+                    n.wayRefs.get(0).way.id);
         for (Way w : osm.ways)
-            System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() + " - railway:" + w.getTag("railway"));
+            System.out.println(w.id + ":" + w.nd.size() + " - " + w.nd.get(0).node.id + " [" + w.tags.size() +
+                    " - railway:" + w.getTag("railway"));
 
+        // creation of railML structure to be marshalled in the end
         Infrastructure is = new Infrastructure();
         is.setId("is");
         ETracks tracks = new ETracks();
         is.setTracks(tracks);
         tracks.getTrack().addAll(osm.ways.parallelStream().map(wayToTrack).collect(Collectors.toList()));
+        // create missing references now that all objects are created (c.f. the comments on objectById declaration)
         referencesToBeSet.entrySet().parallelStream().forEach(e -> e.getValue()
                 .forEach(c -> c.accept(objectById.get(e.getKey()))));
         JAXBContext jc = JAXBContext.newInstance(Infrastructure.class);
         Marshaller marshaller = jc.createMarshaller();
         // SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        // Schema schema = schemaFactory.newSchema(new URL("http://www.railml.org/files/download/schemas/2016/railML-2.3/schema/infrastructure.xsd"));
+        // Schema schema = schemaFactory.newSchema(
+        //          new URL("http://www.railml.org/files/download/schemas/2016/railML-2.3/schema/infrastructure.xsd"));
         // marshaller.setSchema(schema);
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
         marshaller.marshal(is, System.out);
     }
 
+    // OSM Ways are a good fit for railML Tracks (1:1)
     private static Function<Way, ETrack> wayToTrack = way -> {
         ETrack t = new ETrack();
         t.setId("w_" + way.id);
@@ -91,11 +97,15 @@ public class Main
 
     private static void setTrackBeginOrEnd(ETrackNode trackNode, Way.NodeRef nd) {
         switch (nd.node.wayRefs.size()) {
+            // start/end node is only contained in this way -> no connection, "border" of infrastructure
             case 1:
                 TOpenEnd openEnd = new TOpenEnd();
                 openEnd.setId("openEnd_" + nd.node.wayRefs.get(0).node.id);
                 trackNode.setOpenEnd(openEnd);
                 break;
+            // start/end node is contained in 1 other way -> simple connection
+            // (may be a switch on the other track if it's not the beginning/end of the other track,
+            // but that's not important for the railML part of this track)
             case 2:
                 Way.NodeRef otherWayRef = nd.node.wayRefs.stream().filter(r -> r.way != nd.way).findAny()
                         .orElseThrow(() -> new RuntimeException("Way " + nd.way.id + " contains a node twice"));
@@ -106,9 +116,20 @@ public class Main
                 objectById.put(thisConnId, conn);
                 setReferenceLater(thatConnId, ref -> conn.setRef(ref));
                 trackNode.setConnection(conn);
+            case 3:
+                // @TODO
+            case 4:
+                // @TODO
+            default:
+                // @TODO
         }
     }
 
+    // some railML objects that need to be referenced may not have been created before, so we need to
+    // add those references after they have been created (e.g. after everything is created),
+    // so we maintain a "registry" HashMap (objectById) and a "to do" list per ID (referencesToBeSet).
+    // these are realised as "callback" closures so we do not need to remember and reflect on which field
+    // of the referencing object the reference must be set
     private static Map<String, Object> objectById = Collections.synchronizedMap(new HashMap<>());
     private static Map<String, List<Consumer<Object>>> referencesToBeSet = Collections.synchronizedMap(new HashMap<>());
     private static void setReferenceLater(String id, Consumer<Object> c) {
