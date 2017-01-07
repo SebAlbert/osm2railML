@@ -99,9 +99,16 @@ public class Main
         switch (nd.node.wayRefs.size()) {
             // start/end node is only contained in this way -> no connection, "border" of infrastructure
             case 1:
-                TOpenEnd openEnd = new TOpenEnd();
-                openEnd.setId("openEnd_" + nd.node.wayRefs.get(0).node.id);
-                trackNode.setOpenEnd(openEnd);
+                String nodeType = nd.node.getTag("railway");
+                if (nodeType != null && nodeType.equals("buffer_stop")) {
+                    TBufferStop bufferStop = new TBufferStop();
+                    bufferStop.setId("bufferStop_" + nd.node.id);
+                    trackNode.setBufferStop(bufferStop);
+                } else {
+                    TOpenEnd openEnd = new TOpenEnd();
+                    openEnd.setId("openEnd_" + nd.node.id);
+                    trackNode.setOpenEnd(openEnd);
+                }
                 break;
             // start/end node is contained in 1 other way -> simple connection
             // (may be a switch on the other track if it's not the beginning/end of the other track,
