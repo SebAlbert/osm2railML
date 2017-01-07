@@ -21,6 +21,8 @@ package com.sebalbert.osm2railml;
 import com.sebalbert.osm2railml.osm.Node;
 import com.sebalbert.osm2railml.osm.OsmExtract;
 import com.sebalbert.osm2railml.osm.Way;
+import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
 import org.railml.schemas._2016.*;
 import org.xml.sax.SAXException;
 
@@ -31,6 +33,8 @@ import javax.xml.bind.Marshaller;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.File;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
@@ -78,8 +82,13 @@ public class Main
         marshaller.marshal(is, System.out);
     }
 
+    private static BigDecimal doubleToBigDecimal(double value, int scale) {
+        return new BigDecimal(new BigInteger(Long.toString(Math.round(value * Math.pow(10, scale)))), scale);
+    }
+
     // OSM Ways are a good fit for railML Tracks (1:1)
     private static Function<Way, ETrack> wayToTrack = way -> {
+        double accumLength = 0.0;
         ETrack t = new ETrack();
         t.setId("w_" + way.id);
         ETrackTopology topo = new ETrackTopology();
@@ -87,10 +96,17 @@ public class Main
         ETrackBegin tB = new ETrackBegin();
         topo.setTrackBegin(tB);
         tB.setId("tB_" + way.id);
+        tB.setPos(doubleToBigDecimal(accumLength, 6));
         setTrackBeginOrEnd(tB, way.nd.getFirst());
+        for (Way.NodeRef nd : way.nd) {
+            if (nd.prev == null) continue;
+            accumLength += Geodesic.WGS84.Inverse(nd.prev.node.lon, nd.prev.node.lat, nd.node.lon, nd.node.lat,
+                    GeodesicMask.DISTANCE).s12;
+        }
         ETrackEnd tE = new ETrackEnd();
         topo.setTrackEnd(tE);
         tE.setId("tE_" + way.id);
+        tE.setPos(doubleToBigDecimal(accumLength, 6));
         setTrackBeginOrEnd(tE, way.nd.getLast());
         return t;
     };

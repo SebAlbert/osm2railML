@@ -41,7 +41,7 @@ public class Node extends Taggable {
      */
 
     @XmlAttribute
-    public final String lat = null, lon = null;
+    public final Double lat = Double.NaN, lon = Double.NaN;
 
     @XmlTransient
     public final List<Way.NodeRef> wayRefs = new ArrayList<>();
