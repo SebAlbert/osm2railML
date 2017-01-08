@@ -90,6 +90,9 @@ public class Main
         ETrackTopology topo = new ETrackTopology();
         t.setTrackTopology(topo);
 
+        String code = way.getTag("ref");
+        if (code != null) t.setCode(code);
+
         ETrackBegin tB = new ETrackBegin();
         topo.setTrackBegin(tB);
         tB.setId("tB_" + way.id);
