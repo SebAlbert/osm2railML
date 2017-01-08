@@ -1,6 +1,6 @@
 /**
  osm2railML - creating railML infrastructure from OpenStreetMap data
- Copyright (C) 2016  Sebastian Albert
+ Copyright (C) 2016-2017  Sebastian Albert
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
