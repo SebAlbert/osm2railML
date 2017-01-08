@@ -21,8 +21,6 @@ package com.sebalbert.osm2railml;
 import com.sebalbert.osm2railml.osm.Node;
 import com.sebalbert.osm2railml.osm.OsmExtract;
 import com.sebalbert.osm2railml.osm.Way;
-import net.sf.geographiclib.Geodesic;
-import net.sf.geographiclib.GeodesicMask;
 import org.railml.schemas._2016.*;
 import org.xml.sax.SAXException;
 
@@ -39,7 +37,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -68,7 +65,7 @@ public class Main
         is.setId("is");
         ETracks tracks = new ETracks();
         is.setTracks(tracks);
-        tracks.getTrack().addAll(osm.ways.parallelStream().map(wayToTrack).collect(Collectors.toList()));
+        tracks.getTrack().addAll(osm.ways.parallelStream().map(w -> wayToTrack(w)).collect(Collectors.toList()));
         // create missing references now that all objects are created (c.f. the comments on objectById declaration)
         referencesToBeSet.entrySet().parallelStream().forEach(e -> e.getValue()
                 .forEach(c -> c.accept(objectById.get(e.getKey()))));
@@ -87,31 +84,77 @@ public class Main
     }
 
     // OSM Ways are a good fit for railML Tracks (1:1)
-    private static Function<Way, ETrack> wayToTrack = way -> {
-        double accumLength = 0.0;
+    private static ETrack wayToTrack(Way way) {
         ETrack t = new ETrack();
         t.setId("w_" + way.id);
         ETrackTopology topo = new ETrackTopology();
         t.setTrackTopology(topo);
+
         ETrackBegin tB = new ETrackBegin();
         topo.setTrackBegin(tB);
         tB.setId("tB_" + way.id);
-        tB.setPos(doubleToBigDecimal(accumLength, 6));
         setTrackBeginOrEnd(tB, way.nd.getFirst());
+
+        EConnections connections = new EConnections();
+        topo.setConnections(connections);
         for (Way.NodeRef nd : way.nd) {
-            if (nd.prev == null) continue;
-            accumLength += Geodesic.WGS84.Inverse(nd.prev.node.lon, nd.prev.node.lat, nd.node.lon, nd.node.lat,
-                    GeodesicMask.DISTANCE).s12;
+            // detect and model switches and crossings
+            if (nd.node.wayRefs.size() > 1) {
+                String nodeType = nd.node.getTag("railway");
+                if (nodeType != null && nodeType.equals("railway_crossing")) {
+                    // avoid setting a crossing at both respective ends of two sequentially joined tracks
+                    if (!isCanonicalNodeRef(nd)) continue;
+                    ECrossing crossing = new ECrossing();
+                    crossing.setId("crossing_" + way.id + "_" + nd.node.id);
+                    crossing.setPos(doubleToBigDecimal(nd.position(), 6));
+                    for (Way.NodeRef otherWayRef : nd.node.wayRefs) {
+                        if (otherWayRef == nd) continue;
+                        // avoid setting a crossing at both respective ends of two sequentially joined tracks
+                        if (!isCanonicalNodeRef(otherWayRef)) continue;
+                        TSwitchConnectionData conn = new TSwitchConnectionData();
+                        String thisConnId = "crossing_conn_" + way.id + "_" + nd.node.id + "_" + otherWayRef.way.id;
+                        String thatConnId = "crossing_conn_" + otherWayRef.way.id + "_" + nd.node.id + "_" + way.id;
+                        setConnectionIdAndRef(conn, thisConnId, thatConnId);
+                    }
+                } else {
+                    // unless explicitly set as "railway_crossing", we assume a switch
+                    // @TODO
+                }
+            }
         }
         ETrackEnd tE = new ETrackEnd();
         topo.setTrackEnd(tE);
         tE.setId("tE_" + way.id);
-        tE.setPos(doubleToBigDecimal(accumLength, 6));
         setTrackBeginOrEnd(tE, way.nd.getLast());
         return t;
     };
 
+    // find most probable "partner" at a joining node by computing angles (via geodesic azimuth)
+    private static Way.NodeRef oppositeEnd(Way.NodeRef nd) {
+        return nd.node.wayRefs.stream()
+                .filter(r -> r != nd && r.topologicalPosition() != Way.NodeRef.INTERIOR)
+                .min(Comparator.comparingDouble(nd2 -> Math.cos(nd2.azimuthTowardsWay() - nd.azimuthTowardsWay())))
+                .orElse(null);
+    }
+
+    // a NodeRef is a canonical place to add elements if it's either an interior node
+    // or the way ID is lexicographically smaller than its partner's (if any)
+    private static boolean isCanonicalNodeRef(Way.NodeRef nd) {
+        if (nd.topologicalPosition() == Way.NodeRef.INTERIOR) return true;
+        Way.NodeRef partner = oppositeEnd(nd);
+        return partner == null || oppositeEnd(partner) != nd || partner.way.id.compareTo(nd.way.id) > 0;
+    }
+
+    private static int inferSwitchOrientation(Way.NodeRef nd, Way.NodeRef ndSwitch) {
+        double sin = Math.sin((nd.azimuth() - ndSwitch.azimuthTowardsWay()) * 0.5);
+        boolean outgoing = Math.abs(sin) < 0.5;
+        boolean left = sin > 0.0;
+
+        return 0;
+    }
+
     private static void setTrackBeginOrEnd(ETrackNode trackNode, Way.NodeRef nd) {
+        trackNode.setPos(doubleToBigDecimal(nd.position(), 6));
         switch (nd.node.wayRefs.size()) {
             // start/end node is only contained in this way -> no connection, "border" of infrastructure
             case 1:
@@ -135,9 +178,7 @@ public class Main
                 TConnectionData conn = new TConnectionData();
                 String thisConnId = "conn_" + nd.way.id + "_" + nd.node.id;
                 String thatConnId = "conn_" + otherWayRef.way.id + "_" + nd.node.id;
-                conn.setId(thisConnId);
-                objectById.put(thisConnId, conn);
-                setReferenceLater(thatConnId, ref -> conn.setRef(ref));
+                setConnectionIdAndRef(conn, thisConnId, thatConnId);
                 trackNode.setConnection(conn);
             case 3:
                 // @TODO
@@ -167,6 +208,12 @@ public class Main
             referencesToBeSet.put(id, list);
         }
         list.add(c);
+    }
+
+    private static void setConnectionIdAndRef(TConnectionData conn, String thisConnId, String thatConnId) {
+        conn.setId(thisConnId);
+        objectById.put(thisConnId, conn);
+        setReferenceLater(thatConnId, ref -> conn.setRef(ref));
     }
 
 }

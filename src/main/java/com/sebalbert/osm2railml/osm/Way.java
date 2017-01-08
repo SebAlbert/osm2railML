@@ -19,6 +19,9 @@
 
 package com.sebalbert.osm2railml.osm;
 
+import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicData;
+
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -49,6 +52,8 @@ public class Way extends Taggable {
 
     public static class NodeRef {
 
+        public final static int FIRST = 1, LAST = -1, INTERIOR = 0;
+
         @XmlAttribute(name = "ref") @XmlIDREF
         public Node node;
 
@@ -61,6 +66,39 @@ public class Way extends Taggable {
         public void afterUnmarshal(Unmarshaller u, Object parent) {
             this.way = (Way) parent;
             this.node.wayRefs.add(this);
+        }
+
+        public int topologicalPosition() {
+            if (prev == null) return FIRST;
+            if (next == null) return LAST;
+            return INTERIOR;
+        }
+
+        private GeodesicData geodesicData = null;
+        private Double position = null;
+        private Double azimuth = null;
+
+        public GeodesicData geodesicData() {
+            if (geodesicData == null && topologicalPosition() != FIRST)
+                geodesicData = Geodesic.WGS84.Inverse(prev.node.lat, prev.node.lon, node.lat, node.lon);
+            return geodesicData;
+        }
+
+        public double position() {
+            if (position == null) position = topologicalPosition() == FIRST ? 0.0 :
+                    prev.position() + geodesicData().s12;
+            return position;
+        }
+
+        public double azimuth() {
+            if (azimuth == null) azimuth = Math.toRadians(topologicalPosition() == FIRST ? next.geodesicData().azi1 :
+                    geodesicData().azi2);
+            return azimuth;
+        }
+
+        public double azimuthTowardsWay() {
+            // turn around by 180° if this is the last point (because azimuth points in direction prev -> this)
+            return azimuth() + (topologicalPosition() == LAST ? Math.PI : 0.0);
         }
 
     }
