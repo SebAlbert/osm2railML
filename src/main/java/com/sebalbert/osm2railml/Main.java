@@ -94,12 +94,22 @@ public class Main
         topo.setTrackBegin(tB);
         tB.setId("tB_" + way.id);
         setTrackBeginOrEnd(tB, way.nd.getFirst());
+        ETrackEnd tE = new ETrackEnd();
+        topo.setTrackEnd(tE);
+        tE.setId("tE_" + way.id);
+        setTrackBeginOrEnd(tE, way.nd.getLast());
 
         EConnections connections = new EConnections();
         topo.setConnections(connections);
         for (Way.NodeRef nd : way.nd) {
+            final int waysAtNode = nd.node.wayRefs.size();
+            final int topologicalPosition = nd.topologicalPosition();
+            final ETrackNode beginOrEnd = topologicalPosition == Way.NodeRef.FIRST ? tB
+                    : topologicalPosition == Way.NodeRef.LAST ? tE : null;
             // detect and model switches and crossings
-            if (nd.node.wayRefs.size() > 1) {
+            if (waysAtNode > 1) {
+                Way.NodeRef partner = mutuallyOppositeEnd(nd);
+                if (beginOrEnd != null && partner != null) makeConnection(beginOrEnd, nd, partner, true);
                 String nodeType = nd.node.getTag("railway");
                 if (nodeType != null && nodeType.equals("railway_crossing")) {
                     // avoid setting a crossing at both respective ends of two sequentially joined tracks
@@ -114,18 +124,72 @@ public class Main
                         TSwitchConnectionData conn = new TSwitchConnectionData();
                         String thisConnId = "crossing_conn_" + way.id + "_" + nd.node.id + "_" + otherWayRef.way.id;
                         String thatConnId = "crossing_conn_" + otherWayRef.way.id + "_" + nd.node.id + "_" + way.id;
-                        setConnectionIdAndRef(conn, thisConnId, thatConnId);
+                        setConnectionIdAndRef(conn, thisConnId, thatConnId, true);
                     }
                 } else {
                     // unless explicitly set as "railway_crossing", we assume a switch
-                    // @TODO
+                    String switchType = nd.node.getTag("railway:switch");
+                    if (isCanonicalNodeRef(nd) &&
+                            (topologicalPosition == Way.NodeRef.INTERIOR || (waysAtNode > 2 && partner != null))) {
+                        if (switchType != null && switchType.equals("double_slip")) {
+                            // @TODO
+                            continue;
+                        }
+                        if (switchType != null && switchType.equals("single_slip")) {
+                            System.out.println("Warning: single_slip at " + nd.node.id +
+                                    ", choosing arbitrary direction!");
+                            // @TODO
+                            continue;
+                        }
+                        String switchId = "switch_" + nd.node.id;
+                        if (objectById.containsKey(switchId))
+                            throw new RuntimeException("more than 1 straight way on sinmple switch node " + nd.node.id);
+                        ESwitch sw = new ESwitch();
+                        sw.setId(switchId);
+                        sw.setPos(doubleToBigDecimal(nd.position(), 6));
+                        objectById.put(switchId, sw);
+                        for (Way.NodeRef other : nd.node.wayRefs) {
+                            if (other == nd || other == partner) continue;
+                            TSwitchConnectionData conn = new TSwitchConnectionData();
+                            int orientation = inferSwitchOrientation(nd, other);
+                            conn.setOrientation((orientation & INCOMING) > 0 ? "incoming" : "outgoing");
+                            conn.setCourse((orientation & LEFT) > 0 ? "left" : "right");
+                            makeConnection(conn, nd, other, false);
+                            sw.getConnection().add(conn);
+                        }
+                        connections.getSwitchOrCrossing().add(sw);
+                    } else if (partner == null) {
+                        if (switchType != null && switchType.equals("double_slip")) {
+                            // @TODO
+                            continue;
+                        }
+                        if (switchType != null && switchType.equals("single_slip")) {
+                            // @TODO
+                            continue;
+                        }
+                        setReferenceLater("switch_" + nd.node.id, sw -> {
+                            for (TSwitchConnectionData swconn : ((ESwitch) sw).getConnection()) {
+                                if (swconn.getRef() != null) continue;
+                                if (swconn.getId().endsWith("_" + nd.node.id + "_" + way.id)) {
+                                    TConnectionData conn = new TConnectionData();
+                                    /*String[] tokens = swconn.getId().split("_");
+                                    if (tokens.length != 4 || !tokens[0].equals("conn")
+                                            || !tokens[2].equals(nd.node.id) || !tokens[3].equals(way.id))
+                                        throw new RuntimeException("wrong id on switch connection: " + swconn.getId());
+                                    conn.setId("conn_" + way.id + "_" + nd.node.id + "_" + tokens[1]);*/
+                                    conn.setId(swconn.getId() + "_cont");
+                                    conn.setRef(swconn);
+                                    beginOrEnd.setConnection(conn);
+                                    swconn.setRef(conn);
+                                    return;
+                                }
+                            }
+                            System.out.println("Error: could not hook up way " + way.id + " to switch " + nd.node.id);
+                        });
+                    }
                 }
             }
         }
-        ETrackEnd tE = new ETrackEnd();
-        topo.setTrackEnd(tE);
-        tE.setId("tE_" + way.id);
-        setTrackBeginOrEnd(tE, way.nd.getLast());
         return t;
     };
 
@@ -137,55 +201,59 @@ public class Main
                 .orElse(null);
     }
 
+    private static Way.NodeRef mutuallyOppositeEnd(Way.NodeRef nd) {
+        Way.NodeRef other = oppositeEnd(nd);
+        if (other == null || oppositeEnd(other) != nd) return null;
+        return other;
+    }
+
     // a NodeRef is a canonical place to add elements if it's either an interior node
     // or the way ID is lexicographically smaller than its partner's (if any)
     private static boolean isCanonicalNodeRef(Way.NodeRef nd) {
         if (nd.topologicalPosition() == Way.NodeRef.INTERIOR) return true;
-        Way.NodeRef partner = oppositeEnd(nd);
-        return partner == null || oppositeEnd(partner) != nd || partner.way.id.compareTo(nd.way.id) > 0;
+        Way.NodeRef partner = mutuallyOppositeEnd(nd);
+        return partner == null || partner.way.id.compareTo(nd.way.id) > 0;
     }
 
-    private static int inferSwitchOrientation(Way.NodeRef nd, Way.NodeRef ndSwitch) {
-        double sin = Math.sin((nd.azimuth() - ndSwitch.azimuthTowardsWay()) * 0.5);
-        boolean outgoing = Math.abs(sin) < 0.5;
-        boolean left = sin > 0.0;
+    private final static int INCOMING = 1, OUTGOING = 2, LEFT = 4, RIGHT = 8;
 
-        return 0;
+    private static int inferSwitchOrientation(Way.NodeRef nd, Way.NodeRef nd2) {
+        double sin = Math.sin((nd.azimuth() - nd2.azimuthTowardsWay()) * 0.5);
+        boolean outgoing = Math.abs(sin) < 0.5;
+        return (outgoing ? OUTGOING : INCOMING) | (sin < 0.0 ^ outgoing ? LEFT: RIGHT);
+    }
+
+    private static void makeConnection(TConnectionData conn, Way.NodeRef nd, Way.NodeRef other, boolean relink) {
+        makeConnection(conn, nd, other, relink, "conn");
+    }
+
+    private static void makeConnection(TConnectionData conn, Way.NodeRef nd, Way.NodeRef other, boolean relink,
+                                       String prefix) {
+        String thisConnId = prefix + "_" + nd.way.id + "_" + nd.node.id + "_" + other.way.id;
+        String thatConnId = prefix + "_" + other.way.id + "_" + nd.node.id + "_" + nd.way.id;
+        setConnectionIdAndRef(conn, thisConnId, thatConnId, relink);
+    }
+
+    private static void makeConnection(ETrackNode trackNode, Way.NodeRef nd, Way.NodeRef other, boolean relink) {
+        TConnectionData conn = new TConnectionData();
+        makeConnection(conn, nd, other, relink);
+        trackNode.setConnection(conn);
     }
 
     private static void setTrackBeginOrEnd(ETrackNode trackNode, Way.NodeRef nd) {
         trackNode.setPos(doubleToBigDecimal(nd.position(), 6));
-        switch (nd.node.wayRefs.size()) {
+        if (nd.node.wayRefs.size() == 1) {
             // start/end node is only contained in this way -> no connection, "border" of infrastructure
-            case 1:
-                String nodeType = nd.node.getTag("railway");
-                if (nodeType != null && nodeType.equals("buffer_stop")) {
-                    TBufferStop bufferStop = new TBufferStop();
-                    bufferStop.setId("bufferStop_" + nd.node.id);
-                    trackNode.setBufferStop(bufferStop);
-                } else {
-                    TOpenEnd openEnd = new TOpenEnd();
-                    openEnd.setId("openEnd_" + nd.node.id);
-                    trackNode.setOpenEnd(openEnd);
-                }
-                break;
-            // start/end node is contained in 1 other way -> simple connection
-            // (may be a switch on the other track if it's not the beginning/end of the other track,
-            // but that's not important for the railML part of this track)
-            case 2:
-                Way.NodeRef otherWayRef = nd.node.wayRefs.stream().filter(r -> r.way != nd.way).findAny()
-                        .orElseThrow(() -> new RuntimeException("Way " + nd.way.id + " contains a node twice"));
-                TConnectionData conn = new TConnectionData();
-                String thisConnId = "conn_" + nd.way.id + "_" + nd.node.id;
-                String thatConnId = "conn_" + otherWayRef.way.id + "_" + nd.node.id;
-                setConnectionIdAndRef(conn, thisConnId, thatConnId);
-                trackNode.setConnection(conn);
-            case 3:
-                // @TODO
-            case 4:
-                // @TODO
-            default:
-                // @TODO
+            String nodeType = nd.node.getTag("railway");
+            if (nodeType != null && nodeType.equals("buffer_stop")) {
+                TBufferStop bufferStop = new TBufferStop();
+                bufferStop.setId("bufferStop_" + nd.node.id);
+                trackNode.setBufferStop(bufferStop);
+            } else {
+                TOpenEnd openEnd = new TOpenEnd();
+                openEnd.setId("openEnd_" + nd.node.id);
+                trackNode.setOpenEnd(openEnd);
+            }
         }
     }
 
@@ -198,10 +266,11 @@ public class Main
     private static Map<String, List<Consumer<Object>>> referencesToBeSet = Collections.synchronizedMap(new HashMap<>());
     private static void setReferenceLater(String id, Consumer<Object> c) {
         Object o = objectById.get(id);
-        if (o != null) {
+        // bad idea for parallel execution
+        /*if (o != null) {
             c.accept(o);
             return;
-        }
+        }*/
         List<Consumer<Object>> list = referencesToBeSet.get(id);
         if (list == null) {
             list = Collections.synchronizedList(new LinkedList<>());
@@ -210,10 +279,11 @@ public class Main
         list.add(c);
     }
 
-    private static void setConnectionIdAndRef(TConnectionData conn, String thisConnId, String thatConnId) {
+    private static void setConnectionIdAndRef(TConnectionData conn, String thisConnId, String thatConnId,
+                                              boolean relink) {
         conn.setId(thisConnId);
         objectById.put(thisConnId, conn);
-        setReferenceLater(thatConnId, ref -> conn.setRef(ref));
+        if (relink) setReferenceLater(thatConnId, ref -> conn.setRef(ref));
     }
 
 }
