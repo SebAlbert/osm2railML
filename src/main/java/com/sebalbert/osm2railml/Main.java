@@ -131,6 +131,12 @@ public class Main
                     String switchType = nd.node.getTag("railway:switch");
                     if (isCanonicalNodeRef(nd) &&
                             (topologicalPosition == Way.NodeRef.INTERIOR || (waysAtNode > 2 && partner != null))) {
+                        String maxSpeedStraight = nd.node.getTag("railway:maxspeed:straight");
+                        String maxSpeedDiverging = nd.node.getTag("railway:maxspeed:diverging");
+                        BigDecimal maxSpeedDiv = maxSpeedDiverging == null ? null :
+                                new BigDecimal(maxSpeedDiverging).setScale(1, BigDecimal.ROUND_DOWN);
+                        BigDecimal maxSpeedStr = maxSpeedStraight == null ? null :
+                                new BigDecimal(maxSpeedStraight).setScale(1, BigDecimal.ROUND_DOWN);
                         if (switchType != null && switchType.equals("double_slip")) {
                             // @TODO
                             continue;
@@ -156,6 +162,7 @@ public class Main
                             conn.setCourse((orientation & LEFT) > 0 ? "left" : "right");
                             makeConnection(conn, nd, other, false);
                             sw.getConnection().add(conn);
+                            if (maxSpeedDiv != null) conn.setMaxSpeed(maxSpeedDiv);
                         }
                         connections.getSwitchOrCrossing().add(sw);
                     } else if (partner == null) {
