@@ -1,3 +1,14 @@
+The source code in this repository is licensed under the GNU GPL
+version 3, which is reproduced below.
+
+Note that by using (compiling) the project, you will download parts of
+the XML Schema of railML(R), which is subject to the
+Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License.
+Further information can be obtained from www.railml.org, especially
+https://www.railml.org/en/user/licence.html
+
+---
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
