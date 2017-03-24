@@ -288,7 +288,8 @@ public class Main
             c.accept(o);
             return;
         }*/
-        referencesToBeSet.computeIfAbsent(id, k -> new LinkedList<Consumer<Object>>()).add(c);
+        referencesToBeSet.computeIfAbsent(id, k -> Collections.synchronizedList(new LinkedList<Consumer<Object>>()))
+                .add(c);
 
     }
 
