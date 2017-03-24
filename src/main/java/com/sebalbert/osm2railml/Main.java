@@ -140,8 +140,22 @@ public class Main
                                 new BigDecimal(maxSpeedDiverging).setScale(1, BigDecimal.ROUND_DOWN);
                         BigDecimal maxSpeedStr = maxSpeedStraight == null ? null :
                                 new BigDecimal(maxSpeedStraight).setScale(1, BigDecimal.ROUND_DOWN);
+                        String switchId = "switch_" + nd.node.id;
+                        if (objectById.containsKey(switchId))
+                            throw new RuntimeException("more than 1 straight way on simple switch node " + nd.node.id);
+                        ESwitch sw = new ESwitch();
+                        sw.setId(switchId);
+                        sw.setPos(doubleToBigDecimal(nd.position(), 6));
+                        objectById.put(switchId, sw);
                         if (switchType != null && switchType.equals("double_slip")) {
-                            // @TODO
+                            Way.NodeRef other = nd.node.wayRefs.stream().filter(r -> r != nd && r != partner)
+                                    .min(Comparator.comparing(r -> r.way.id)).orElse(null);
+                            if (other == null) {
+                                System.out.println("Error: double_slip without other track at " + nd.node.id);
+                                continue;
+                            }
+                            TSwitchConnectionData conn = new TSwitchConnectionData();
+                            // @TODO build own connections, connect to other switch in callback closure
                             continue;
                         }
                         if (switchType != null && switchType.equals("single_slip")) {
@@ -150,13 +164,6 @@ public class Main
                             // @TODO
                             continue;
                         }
-                        String switchId = "switch_" + nd.node.id;
-                        if (objectById.containsKey(switchId))
-                            throw new RuntimeException("more than 1 straight way on sinmple switch node " + nd.node.id);
-                        ESwitch sw = new ESwitch();
-                        sw.setId(switchId);
-                        sw.setPos(doubleToBigDecimal(nd.position(), 6));
-                        objectById.put(switchId, sw);
                         for (Way.NodeRef other : nd.node.wayRefs) {
                             if (other == nd || other == partner) continue;
                             TSwitchConnectionData conn = new TSwitchConnectionData();
