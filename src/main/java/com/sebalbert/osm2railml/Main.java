@@ -288,12 +288,8 @@ public class Main
             c.accept(o);
             return;
         }*/
-        List<Consumer<Object>> list = referencesToBeSet.get(id);
-        if (list == null) {
-            list = Collections.synchronizedList(new LinkedList<>());
-            referencesToBeSet.put(id, list);
-        }
-        list.add(c);
+        referencesToBeSet.computeIfAbsent(id, k -> new LinkedList<Consumer<Object>>()).add(c);
+
     }
 
     private static void setConnectionIdAndRef(TConnectionData conn, String thisConnId, String thatConnId,
